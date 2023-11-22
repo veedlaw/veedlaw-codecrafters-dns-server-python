@@ -1,9 +1,8 @@
 import socket
+from app.dnsmessage import DNSheader
 
 
 def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
 
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(("127.0.0.1", 2053))
@@ -12,7 +11,8 @@ def main():
         try:
             buf, source = udp_socket.recvfrom(512)
 
-            response = b""
+            header = DNSheader.from_message(buf)
+            response = header.pack()
 
             udp_socket.sendto(response, source)
         except Exception as e:
