@@ -50,12 +50,6 @@ from typing import Self
 import struct
 
 NETWORK_BYTE_ORDER = 'big'
-# '!' marks network byte order
-# 'H' is unsigned short: 2 bytes
-# 'c' is char: 1 byte
-DNS_HEADER_FORMAT = '!HccHHHH'
-DNS_HEADER_STRUCT = struct.Struct(DNS_HEADER_FORMAT)
-assert DNS_HEADER_STRUCT.size == 12  # DNS headers are 12 bytes
 
 
 
@@ -76,6 +70,12 @@ class DNSheader:
     auth_rec_count: int
     additional_rec_count: int
 
+    # '!' marks network byte order
+    # 'H' is unsigned short: 2 bytes
+    # 'c' is char: 1 byte
+    DNS_HEADER_FORMAT = '!HccHHHH'
+    DNS_HEADER_STRUCT = struct.Struct(DNS_HEADER_FORMAT)
+    assert DNS_HEADER_STRUCT.size == 12  # DNS headers are 12 bytes
 
     @classmethod
     def from_message(cls, message: bytes) -> Self:
@@ -159,6 +159,7 @@ class DNSheader:
         )
 
 
+
     def pack(self) -> bytes:
         H_packet_identifier = self.packet_identifier
 
@@ -185,7 +186,7 @@ class DNSheader:
         H_ns_count = self.auth_rec_count
         H_ar_count = self.additional_rec_count
 
-        return DNS_HEADER_STRUCT.pack(
+        return self.DNS_HEADER_STRUCT.pack(
             H_packet_identifier,
             c_flags_and_codes_byte3,
             c_flags_and_codes_byte4,
@@ -195,3 +196,42 @@ class DNSheader:
             H_ar_count
         )
 
+@dataclass
+class DNSquestion:
+    name: list[str]
+    type: int
+    clazz: int
+
+    @classmethod
+    def from_message(cls, message: bytes) -> Self:
+        # TODO
+        return cls(['codecrafters', 'io'], 1, 1)
+
+    def pack(self) -> bytes:
+        name = b''
+
+        for label in self.name:
+            name += struct.pack('!B', len(label)) + label.encode()
+        name += b'\x00'
+
+        return name + struct.pack('!HH', self.type, self.clazz)
+
+
+
+@dataclass
+class DNSmessage:
+    header: DNSheader
+    question: DNSquestion
+
+    @classmethod
+    def from_message(cls, message: bytes) -> Self:
+        header = DNSheader.from_message(message)
+        question = DNSquestion.from_message(message)
+        return cls(header, question)
+    
+    def pack(self) -> bytes:
+        header_bytes = self.header.pack()
+        question_bytes = self.question.pack()
+
+        # TODO
+        return header_bytes + question_bytes

@@ -1,5 +1,5 @@
 import socket
-from app.dnsmessage import DNSheader
+from app.dnsmessage import DNSheader, DNSmessage
 
 
 def main():
@@ -11,8 +11,9 @@ def main():
         try:
             buf, source = udp_socket.recvfrom(512)
 
-            header = DNSheader.from_message(buf)
-            response = header.pack()
+            # header = DNSheader.from_message(buf)
+            msg = DNSmessage.from_message(buf)
+            response = msg.pack()
 
             udp_socket.sendto(response, source)
         except Exception as e:
