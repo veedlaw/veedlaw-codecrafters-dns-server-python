@@ -43,11 +43,14 @@ Number of name server resource records.
 
 Additional Record Count (ARCOUNT)
 Number of resource records in additional records section.
-
 """
+
 from dataclasses import dataclass
 from typing import Self
 import struct
+
+from app import dns_record_type
+from app import dns_record_class
 
 NETWORK_BYTE_ORDER = 'big'
 
@@ -55,7 +58,7 @@ NETWORK_BYTE_ORDER = 'big'
 
 @dataclass
 class DNSheader:
-    """Class for handling DNS message contents."""
+    """Class for handling DNS header section contents."""
     packet_identifier: int
     query_indicator: int
     opcode: int
@@ -65,7 +68,7 @@ class DNSheader:
     recursion_available: int
     z_reserved: int
     response_code: int
-    question_count: int
+    question_count: int  # https://www.ietf.org/archive/id/draft-bellis-dnsop-qdcount-is-one-00.html
     answer_count: int
     auth_rec_count: int
     additional_rec_count: int
@@ -74,8 +77,9 @@ class DNSheader:
     # 'H' is unsigned short: 2 bytes
     # 'c' is char: 1 byte
     DNS_HEADER_FORMAT = '!HccHHHH'
+    DNS_HEADER_SIZE = 12
     DNS_HEADER_STRUCT = struct.Struct(DNS_HEADER_FORMAT)
-    assert DNS_HEADER_STRUCT.size == 12  # DNS headers are 12 bytes
+    assert DNS_HEADER_STRUCT.size == DNS_HEADER_SIZE
 
     @classmethod
     def from_message(cls, message: bytes) -> Self:
@@ -93,55 +97,28 @@ class DNSheader:
         Returns:
             Initialized DNSheader
         """
-        # First entry is 2 bytes
-        next_byte = 2
-
-        # Byte 1 & 2: first 2 bytes are the ID
-        packet_identifier = message[0:next_byte]
-        packet_identifier = int.from_bytes(packet_identifier,
-                                             NETWORK_BYTE_ORDER,
-                                             signed=False)
+        (packet_identifier, 
+        byte3,  # requires bit-level unpacking
+        byte4,  # requires bit-level unpacking
+        q_count, 
+        an_count, 
+        ns_count, 
+        ar_count) = cls.DNS_HEADER_STRUCT.unpack(message[:cls.DNS_HEADER_SIZE])
 
         # Byte 3: various flags and codes
-        query_indicator = 0b0000_0001 & message[next_byte]
-        opcode          = 0b0001_1110 & message[next_byte]
-        authoritative_answer     = 0b0010_0000 & message[next_byte]
-        truncation      = 0b0100_0000 & message[next_byte]
-        recursion_desired = 0b1000_0000 & message[next_byte]
-        next_byte += 1
+        byte3 = int.from_bytes(byte3, byteorder=NETWORK_BYTE_ORDER, signed=False)
+        query_indicator = 0b0000_0001 & byte3
+        opcode          = 0b0001_1110 & byte3
+        authoritative_answer     = 0b0010_0000 & byte3
+        truncation      = 0b0100_0000 & byte3
+        recursion_desired = 0b1000_0000 & byte3
 
         # Byte 4: various flags and codes continued
-        recursion_avail = 0b0000_0001 & message[next_byte]
-        z_reserved      = 0b0000_1110 & message[next_byte]
-        response_code   = 0b1111_0000 & message[next_byte]
-        next_byte += 1
+        byte4 = int.from_bytes(byte4, byteorder=NETWORK_BYTE_ORDER, signed=False)
+        recursion_avail = 0b0000_0001 & byte4
+        z_reserved      = 0b0000_1110 & byte4
+        response_code   = 0b1111_0000 & byte4
 
-        # Byte 5 & 6: Question count
-        question_count = message[next_byte: next_byte+2]
-        question_count = int.from_bytes(question_count,
-                                     NETWORK_BYTE_ORDER,
-                                     signed=False)
-        next_byte += 2
-        # Byte 7 & 8: Answer record count
-        answer_count = message[next_byte: next_byte+2]
-        answer_count = int.from_bytes(answer_count,
-                                     NETWORK_BYTE_ORDER,
-                                     signed=False)
-
-        next_byte += 2
-        # Byte 9 & 10: Authoritative record count
-        auth_rec_count = message[next_byte: next_byte+2]
-        auth_rec_count = int.from_bytes(auth_rec_count,
-                                     NETWORK_BYTE_ORDER,
-                                     signed=False)
-
-        next_byte += 2
-        # Byte 11 & 12: Additional record count
-        additional_rec_count = message[next_byte: next_byte+2]
-        additional_rec_count = int.from_bytes(additional_rec_count,
-                                     NETWORK_BYTE_ORDER,
-                                     signed=False)
-        
         return cls(
             packet_identifier,
             query_indicator,
@@ -152,15 +129,18 @@ class DNSheader:
             recursion_avail,
             z_reserved,
             response_code,
-            question_count,
-            answer_count,
-            auth_rec_count,
-            additional_rec_count
+            q_count,
+            1, #an_count,
+            ns_count,
+            ar_count
         )
 
-
-
     def pack(self) -> bytes:
+        """
+        Packs the DNS header fields into a bytes object suitable for network transmission.
+        Returns:
+            bytes: The packed DNS header as a byte string.
+        """
         H_packet_identifier = self.packet_identifier
 
         # byte 3: various flags and codes continued
@@ -196,25 +176,135 @@ class DNSheader:
             H_ar_count
         )
 
+    def __str__(self) -> str:
+        return (f'DNSheader:\n'
+            f'\tid: {self.packet_identifier}\n'
+            f'response: {"true" if self.query_indicator else "false"}\n'
+            f'opcode: {self.opcode}\n'
+            f'authoritative_answer: {"true" if self.authoritative_answer else "false"}\n'
+            f'truncated_message: {"true" if self.truncation else "false"}\n'
+            f'recursion_desired: {"true" if self.recursion_desired else "false"}\n'
+            f'recursion_available: {"true" if self.recursion_available else "false"}\n'
+            f'recursion_desired: {"true" if self.recursion_desired else "false"}\n'
+            f'z_reserved: {self.z_reserved}\n'
+            f'response_code: {self.response_code}\n'
+            f'qd_count: {self.question_count}\n'
+            f'an_count: {self.answer_count}\n'
+            f'ns_count: {self.auth_rec_count}\n'
+            f'ar_count: {self.additional_rec_count}'
+        )
+
+
 @dataclass
 class DNSquestion:
+    """Class for handling DNS question section contents."""
     name: list[str]
-    type: int
+    record_type: int
     clazz: int
 
     @classmethod
     def from_message(cls, message: bytes) -> Self:
+        """
+        Construct a DNSquestion instance from a DNS message (bytes).
+
+        This is an alternative constructor method for the DNSquestion class.
+        It extracts the relevant bits and bytes from the DNS message into 
+        separate fields and returns the corresponding DNSquestion dataclass.
+
+        Args:
+            cls: The type of the class 
+            message (bytes): DNS message contents
+
+        Returns:
+            Initialized DNSquestion
+        """
+
         # TODO
         return cls(['codecrafters', 'io'], 1, 1)
 
     def pack(self) -> bytes:
+        """
+        Packs the DNS question fields into a bytes object suitable for network transmission.
+        Returns:
+            bytes: The packed DNS question as a byte string.
+        
+        """
         name = b''
 
         for label in self.name:
             name += struct.pack('!B', len(label)) + label.encode()
         name += b'\x00'
 
-        return name + struct.pack('!HH', self.type, self.clazz)
+        return name + struct.pack('!HH', self.record_type, self.clazz)
+
+    def __str__(self) -> str:
+        return (f'DNSquestion:\n'
+            f'\tname: {self.name}\n'
+            f'type: {self.record_type}\n'
+            f'class: {self.clazz}\n'
+        )
+
+
+@dataclass
+class DNSanswer:
+    name: list[str] 
+    record_type: int
+    clazz: int
+    ttl: int
+    rdlength: int
+    rdata: str
+
+    @classmethod
+    def from_message(cls, message: bytes) -> Self:
+        # TODO HARDCODED
+        name = ['codecrafters', 'io']
+        record_type = dns_record_type.RecordType.A.value
+        clazz = dns_record_class.RecordClass.IN.value
+        # ttl = struct.pack('!I', 60)
+        ttl = 60
+        # rdlength = struct.pack('!H', 4)
+        rdata = '8.8.8.8'
+
+        return cls(name, record_type, clazz, ttl, len(rdata)-3, rdata)
+
+    def pack(self) -> bytes:
+        """
+        Packs the DNS answer fields into a bytes object suitable for network transmission.
+        Returns:
+            bytes: The packed DNS answer as a byte string.
+        
+        """
+        name = b''
+
+        for label in self.name:
+            name += struct.pack('!B', len(label)) + label.encode()
+        name += b'\x00'
+
+        # convert rdata to integer format
+        rdata_encoded = b''
+        for ip_part in '8.8.8.8'.split('.'):
+            rdata_encoded += struct.pack('!B', int(ip_part))
+
+        # pack fixed length fields: type, class, TTL length and data
+        format_str = '!HHIH'
+        packed_fields = struct.pack(format_str, 
+            self.record_type,
+            self.clazz,
+            self.ttl,
+            self.rdlength,
+        )
+
+        return name + packed_fields + rdata_encoded
+
+    def __str__(self) -> str:
+        return (f'DNSanswer:\n'
+            f'\tname: {self.name}\n'
+            f'type: {self.record_type}\n'
+            f'class: {self.clazz}\n'
+            f'ttl: {self.ttl}\n'
+            f'rdlength: {self.rdlength}\n'
+            f'rdata: {self.rdata}\n'
+        )
 
 
 
@@ -222,16 +312,24 @@ class DNSquestion:
 class DNSmessage:
     header: DNSheader
     question: DNSquestion
+    answer: DNSanswer
 
     @classmethod
     def from_message(cls, message: bytes) -> Self:
         header = DNSheader.from_message(message)
         question = DNSquestion.from_message(message)
-        return cls(header, question)
+        answer = DNSanswer.from_message(message)
+        return cls(header, question, answer)
     
     def pack(self) -> bytes:
+        """
+        Packs the DNS message fields into a bytes object suitable for network transmission.
+        Returns:
+            bytes: The packed DNS message as a byte string.
+        
+        """
         header_bytes = self.header.pack()
         question_bytes = self.question.pack()
+        answer_bytes = self.answer.pack()
 
-        # TODO
-        return header_bytes + question_bytes
+        return header_bytes + question_bytes + answer_bytes
