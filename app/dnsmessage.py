@@ -107,17 +107,17 @@ class DNSheader:
 
         # Byte 3: various flags and codes
         byte3 = int.from_bytes(byte3, byteorder=NETWORK_BYTE_ORDER, signed=False)
-        query_indicator = 0b0000_0001 & byte3
-        opcode          = 0b0001_1110 & byte3
-        authoritative_answer     = 0b0010_0000 & byte3
-        truncation      = 0b0100_0000 & byte3
-        recursion_desired = 0b1000_0000 & byte3
+        query_indicator = 0b1000_0000 & byte3
+        opcode          = 0b0111_1000 & byte3
+        authoritative_answer     = 0b0000_0100 & byte3
+        truncation      = 0b0000_0010 & byte3
+        recursion_desired = 0b0000_0001 & byte3
 
         # Byte 4: various flags and codes continued
         byte4 = int.from_bytes(byte4, byteorder=NETWORK_BYTE_ORDER, signed=False)
-        recursion_avail = 0b0000_0001 & byte4
-        z_reserved      = 0b0000_1110 & byte4
-        response_code   = 0b1111_0000 & byte4
+        recursion_avail = 0b1000_0000 & byte4
+        z_reserved      = 0b0111_0000 & byte4
+        response_code   = 0b0000_1111 & byte4
 
         return cls(
             packet_identifier,
@@ -179,19 +179,19 @@ class DNSheader:
     def __str__(self) -> str:
         return (f'DNSheader:\n'
             f'\tid: {self.packet_identifier}\n'
-            f'response: {"true" if self.query_indicator else "false"}\n'
-            f'opcode: {self.opcode}\n'
-            f'authoritative_answer: {"true" if self.authoritative_answer else "false"}\n'
-            f'truncated_message: {"true" if self.truncation else "false"}\n'
-            f'recursion_desired: {"true" if self.recursion_desired else "false"}\n'
-            f'recursion_available: {"true" if self.recursion_available else "false"}\n'
-            f'recursion_desired: {"true" if self.recursion_desired else "false"}\n'
-            f'z_reserved: {self.z_reserved}\n'
-            f'response_code: {self.response_code}\n'
-            f'qd_count: {self.question_count}\n'
-            f'an_count: {self.answer_count}\n'
-            f'ns_count: {self.auth_rec_count}\n'
-            f'ar_count: {self.additional_rec_count}'
+            f'\tresponse: {"true" if self.query_indicator else "false"}\n'
+            f'\topcode: {self.opcode}\n'
+            f'\tauthoritative_answer: {"true" if self.authoritative_answer else "false"}\n'
+            f'\ttruncated_message: {"true" if self.truncation else "false"}\n'
+            f'\trecursion_desired: {"true" if self.recursion_desired else "false"}\n'
+            f'\trecursion_available: {"true" if self.recursion_available else "false"}\n'
+            f'\trecursion_desired: {"true" if self.recursion_desired else "false"}\n'
+            f'\tz_reserved: {self.z_reserved}\n'
+            f'\tresponse_code: {self.response_code}\n'
+            f'\tqd_count: {self.question_count}\n'
+            f'\tan_count: {self.answer_count}\n'
+            f'\tns_count: {self.auth_rec_count}\n'
+            f'\tar_count: {self.additional_rec_count}'
         )
 
 
