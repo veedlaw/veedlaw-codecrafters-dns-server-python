@@ -7,7 +7,7 @@ as defined in the DNS protocol standards.
 
 import unittest
 import struct
-from app.dnsmessage import DNSquestion, DNSheader
+from app.dns_message.dns_header import DNSheader
 
 class TestDNSheader(unittest.TestCase):
 
