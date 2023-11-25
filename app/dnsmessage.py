@@ -107,21 +107,25 @@ class DNSheader:
 
         # Byte 3: various flags and codes
         byte3 = int.from_bytes(byte3, byteorder=NETWORK_BYTE_ORDER, signed=False)
-        query_indicator = 0b1000_0000 & byte3
-        opcode          = 0b0111_1000 & byte3
-        authoritative_answer     = 0b0000_0100 & byte3
-        truncation      = 0b0000_0010 & byte3
-        recursion_desired = 0b0000_0001 & byte3
+        query_indicator = (0b10000000 & byte3) >> 7
+        opcode          = (0b01111000 & byte3) >> 3
+        authoritative_answer     = (0b00000100 & byte3) >> 2
+        truncation      = (0b00000010 & byte3) >> 1
+        recursion_desired = 0b00000001 & byte3
 
         # Byte 4: various flags and codes continued
         byte4 = int.from_bytes(byte4, byteorder=NETWORK_BYTE_ORDER, signed=False)
-        recursion_avail = 0b1000_0000 & byte4
-        z_reserved      = 0b0111_0000 & byte4
-        response_code   = 0b0000_1111 & byte4
+        recursion_avail = (0b10000000 & byte4) >> 7
+        z_reserved      = (0b01110000 & byte4) >> 4
+        if opcode == 0:
+            response_code = 0
+        else:
+            response_code = 4
+
 
         return cls(
             packet_identifier,
-            query_indicator,
+            1, #query_indicator,
             opcode,
             authoritative_answer,
             truncation,
@@ -144,20 +148,21 @@ class DNSheader:
         H_packet_identifier = self.packet_identifier
 
         # byte 3: various flags and codes continued
-        c_flags_and_codes_byte3 = bytes(1)
-        c_flags_and_codes_byte3 = 0b0000_0001 | self.query_indicator
-        c_flags_and_codes_byte3 = 0b0001_1110 | self.opcode
-        c_flags_and_codes_byte3 = 0b0010_0000 | self.authoritative_answer
-        c_flags_and_codes_byte3 = 0b0100_0000 | self.truncation
-        c_flags_and_codes_byte3 = 0b1000_0000 | self.recursion_desired
+        c_flags_and_codes_byte3 = 0
+        c_flags_and_codes_byte3 = c_flags_and_codes_byte3 | (self.query_indicator << 7)
+        c_flags_and_codes_byte3 = c_flags_and_codes_byte3 | (self.opcode << 3)
+        c_flags_and_codes_byte3 = c_flags_and_codes_byte3 | (self.authoritative_answer << 2)
+        c_flags_and_codes_byte3 = c_flags_and_codes_byte3 | (self.truncation << 1)
+        c_flags_and_codes_byte3 = c_flags_and_codes_byte3 | self.recursion_desired
         c_flags_and_codes_byte3 = c_flags_and_codes_byte3.to_bytes(
             byteorder=NETWORK_BYTE_ORDER, signed=False)
 
         # byte 4: various flags and codes continued
         c_flags_and_codes_byte4 = 0
-        c_flags_and_codes_byte4 = 0b0000_0001 | self.recursion_available
-        c_flags_and_codes_byte4 = 0b0000_1110 | self.z_reserved
-        c_flags_and_codes_byte4 = 0b1111_0000 | self.response_code
+
+        c_flags_and_codes_byte4 = c_flags_and_codes_byte4 | (self.recursion_available << 7)
+        c_flags_and_codes_byte4 = c_flags_and_codes_byte4 | (self.z_reserved << 4)
+        c_flags_and_codes_byte4 = c_flags_and_codes_byte4 | (self.response_code)
         c_flags_and_codes_byte4 = c_flags_and_codes_byte4.to_bytes(
             byteorder=NETWORK_BYTE_ORDER, signed=False)
 
