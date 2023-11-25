@@ -31,16 +31,25 @@ class DNSquestion:
         # Skip the header section:
         DNS_HEADER_LEN_BYTES = 12
         buf = message[DNS_HEADER_LEN_BYTES:]
+        labels = []
+
+        # Parse the string
         next_byte = 0
+        while buf[next_byte] != '\x00':
+            # Read the length of the string 
+            strlen = buf[next_byte]
+            # Cut the appropriate slice
+            string = buf[next_byte + 1: next_byte + 1 + strlen]
+            labels.append(string.decode())
 
-        print(f'{buf.hex()=}')
-        # Read the length of the string 
-        strlen = buf[next_byte]
-        print(f'{buf[next_byte]=}; {format(buf[next_byte], "x")}')
-        print(f'{buf[next_byte+1]=}; {format(buf[next_byte+1], "x")}')
-
-        # TODO
-        return cls(['codecrafters', 'io'], 1, 1)
+            next_byte += strlen + 1
+            if buf[next_byte] == 0:
+                break
+        
+        # HARDCODED
+        record_type = RecordType.A.value
+        clazz = RecordClass.IN.value
+        return cls(labels, record_type, clazz)
 
     def pack(self) -> bytes:
         """

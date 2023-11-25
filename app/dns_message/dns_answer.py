@@ -17,9 +17,28 @@ class DNSanswer:
     @classmethod
     def from_message(cls, message: bytes) -> Self:
         # TODO HARDCODED
-        name = ['codecrafters', 'io']
-        record_type = dns_record_type.RecordType.A.value
-        clazz = dns_record_class.RecordClass.IN.value
+
+        # Skip the header section:
+        DNS_HEADER_LEN_BYTES = 12
+        buf = message[DNS_HEADER_LEN_BYTES:]
+        labels = []
+
+        # Parse the string
+        next_byte = 0
+        while buf[next_byte] != '\x00':
+            # Read the length of the string 
+            strlen = buf[next_byte]
+            # Cut the appropriate slice
+            string = buf[next_byte + 1: next_byte + 1 + strlen]
+            labels.append(string.decode())
+
+            next_byte += strlen + 1
+            if buf[next_byte] == 0:
+                break
+        
+        name = labels 
+        record_type = RecordType.A.value
+        clazz = RecordClass.IN.value
         # ttl = struct.pack('!I', 60)
         ttl = 60
         # rdlength = struct.pack('!H', 4)
