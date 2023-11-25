@@ -11,7 +11,6 @@ def main():
         try:
             buf, source = udp_socket.recvfrom(512)
 
-            # header = DNSheader.from_message(buf)
             msg = DNSmessage.from_message(buf)
             response = msg.pack()
 

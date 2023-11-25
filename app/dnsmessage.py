@@ -1,50 +1,3 @@
-"""
-Packet Identifier (ID)
-16 bits, used by the requester to match up replies to outstanding queries.
-
-Query/Response Indicator (QR)
-1 bit, indicates whether the message is a query (0) or a response (1).
-
-Operation Code (OPCODE)
-4 bits, indicates "kind" of query for the message.
-
-Authoritative Answer (AA)
-1 bit, indicates whether the response is authoritative (1) or not (0).
-
-Truncation (TC)
-1 bit, whether the response was truncated (1) or not (0).
-
-Recursion Desired (RD)
-1 bit, whether the query should be pursued recursively (1) or not (0).
-
-Recursion Available (RA)
-1 bit, used in response to signal recursion availability (1) or not (0).
-
-Reserved (Z)
-3 bits, three reserved bits set to zero.
-
-Response Code (RCODE)
-4 bits, set in responses
-- 0 no error
-- 1 format error (Invalid query format, server could not interpret)
-- 2 server failure (i.e. internal server error)
-- 3 name error (the queried domain name does not exist)
-- 4 not implemented
-- 5 refused
-
-Question Count (QDCOUNT)
-Number of entries in the question section.
-
-Answer Record Count (ANCOUNT)
-Number of entries in the answer section.
-
-Authoritative Record Count (NSCOUNT)
-Number of name server resource records.
-
-Additional Record Count (ARCOUNT)
-Number of resource records in additional records section.
-"""
-
 from dataclasses import dataclass
 from typing import Self
 import struct
@@ -53,8 +6,6 @@ from app import dns_record_type
 from app import dns_record_class
 
 NETWORK_BYTE_ORDER = 'big'
-
-
 
 @dataclass
 class DNSheader:
