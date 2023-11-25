@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import Self
 import struct
 
-from app import dns_record_type
-from app import dns_record_class
+from app.dns_message import dns_record_type
+from app.dns_message import dns_record_class
 from app.dns_message.dns_header import DNSheader
 from app.dns_message.dns_question import DNSquestion
 from app.dns_message.dns_answer import DNSanswer

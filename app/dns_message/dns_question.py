@@ -1,3 +1,10 @@
+from dataclasses import dataclass
+from typing import Self
+import struct
+
+from app.dns_message.dns_record_class import RecordClass
+from app.dns_message.dns_record_type import RecordType
+
 @dataclass
 class DNSquestion:
     """Class for handling DNS question section contents."""
