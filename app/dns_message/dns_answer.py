@@ -7,6 +7,7 @@ from app.dns_message.dns_record_type import RecordType
 
 @dataclass
 class DNSanswer:
+    """Class for handling DNS answer section contents."""
     name: list[str] 
     record_type: int
     clazz: int
@@ -15,8 +16,24 @@ class DNSanswer:
     rdata: str
 
     @classmethod
-    def from_message(cls, message: bytes) -> Self:
-        # TODO HARDCODED
+    def from_message(cls, message: bytes, buf_ptr: int) -> Self:
+        """
+        Construct a DNSanswer instance from a DNS message (bytes).
+
+        This is an alternative constructor method for the DNSanswer class.
+        It extracts the relevant bits and bytes from the DNS message into 
+        separate fields and returns the corresponding DNSanswer dataclass.
+
+        Args:
+            cls: The type of the class 
+            buf (bytes): DNS message contents
+            buf_ptr (int): Index of the message to start parsing from.
+
+        Returns:
+            A tuple (DNSanswer, int), where the int signifies the byte where parsing was finished.
+        """
+
+        # TODO
 
         # Skip the header section:
         DNS_HEADER_LEN_BYTES = 12
@@ -44,7 +61,7 @@ class DNSanswer:
         # rdlength = struct.pack('!H', 4)
         rdata = '8.8.8.8'
 
-        return cls(name, record_type, clazz, ttl, len(rdata)-3, rdata)
+        return cls(name, record_type, clazz, ttl, len(rdata)-3, rdata), buf_ptr
 
     def pack(self) -> bytes:
         """

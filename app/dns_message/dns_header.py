@@ -69,6 +69,7 @@ class DNSheader:
             response_code = 4
 
 
+        an_count = q_count
         return cls(
             packet_identifier,
             1, #query_indicator,
@@ -80,7 +81,7 @@ class DNSheader:
             z_reserved,
             response_code,
             q_count,
-            1, #an_count,
+            an_count,
             ns_count,
             ar_count
         )

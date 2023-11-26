@@ -12,8 +12,10 @@ class DNSquestion:
     record_type: int
     clazz: int
 
+    PACKET_COMPRESSION_SIGNAL_BYTE = 0xC0
+
     @classmethod
-    def from_message(cls, message: bytes) -> Self:
+    def from_message(cls, buf: bytes, buf_ptr: int) -> (Self, int):
         """
         Construct a DNSquestion instance from a DNS message (bytes).
 
@@ -23,33 +25,47 @@ class DNSquestion:
 
         Args:
             cls: The type of the class 
-            message (bytes): DNS message contents
+            buf (bytes): DNS message contents
+            buf_ptr (int): Index of the message to start parsing from.
 
         Returns:
-            Initialized DNSquestion
+            A tuple (DNSquestion, int), where the int signifies the byte where parsing was finished.
         """
-        # Skip the header section:
-        DNS_HEADER_LEN_BYTES = 12
-        buf = message[DNS_HEADER_LEN_BYTES:]
         labels = []
 
         # Parse the string
-        next_byte = 0
-        while buf[next_byte] != '\x00':
-            # Read the length of the string 
-            strlen = buf[next_byte]
-            # Cut the appropriate slice
-            string = buf[next_byte + 1: next_byte + 1 + strlen]
-            labels.append(string.decode())
+        while buf[buf_ptr] != '\x00':
+            strlen = buf[buf_ptr]
+            
+            if (strlen & cls.PACKET_COMPRESSION_SIGNAL_BYTE == cls.PACKET_COMPRESSION_SIGNAL_BYTE):
+                # The two highest bits set signal packet compression, however then to obtain the jump
+                # address we must consider it as part of a 2 byte value where we need to unset the 
+                # two highest order bits
+                jump_addr = int.from_bytes(buf[buf_ptr: buf_ptr+2]) ^ 0xC000
+                strlen = buf[jump_addr]
+                string = buf[jump_addr + 1: jump_addr + 1 + strlen]
+                labels.append(string.decode())
 
-            next_byte += strlen + 1
-            if buf[next_byte] == 0:
+                # Since the compression is 2 bytes, overwrite the proxy value
+                # Setting to 1 instead of 2 because +1 gets added later
+                strlen = 1
+
+            # Cut the appropriate slice
+            else:
+                string = buf[buf_ptr + 1: buf_ptr + 1 + strlen]
+                labels.append(string.decode())
+
+            buf_ptr += strlen + 1
+            if buf[buf_ptr] == 0:
+                buf_ptr += 1
                 break
         
         # HARDCODED
         record_type = RecordType.A.value
+        buf_ptr += 2
         clazz = RecordClass.IN.value
-        return cls(labels, record_type, clazz)
+        buf_ptr += 2
+        return cls(labels, record_type, clazz), buf_ptr
 
     def pack(self) -> bytes:
         """
@@ -65,6 +81,9 @@ class DNSquestion:
         name += b'\x00'
 
         return name + struct.pack('!HH', self.record_type, self.clazz)
+
+    def _parse_label(self):
+        pass
 
     def __str__(self) -> str:
         return (f'DNSquestion:\n'
