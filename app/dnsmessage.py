@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Self
 import struct
+import socket
 
 from app.dns_message import dns_record_type
 from app.dns_message import dns_record_class
@@ -16,33 +17,48 @@ class DNSmessage:
     answers: list[DNSanswer]
 
     @classmethod
-    def from_message(cls, message: bytes) -> Self:
+    def from_message(cls, message: bytes, resolver: (int, int)) -> Self:
         header = DNSheader.from_message(message)
-
-        print(f'{message=}')
-        print(f'{str(header)=}')
+        queries = []
+        answers = []
 
         # Parse all questions
-        queries = []
         buf_ptr = header.DNS_HEADER_SIZE
         for _ in range(header.question_count):
             question, buf_ptr = DNSquestion.from_message(message, buf_ptr)
             queries.append(question)
-            print(f'appended {question=}')
 
+            # Fetch answer to each query
+            if resolver:
+                resolver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                resolver_socket.sendto(message, resolver)
+                response_buf, source = resolver_socket.recvfrom(512)
+                resolver_socket.close()
 
-        answers = []
-        for i in range(header.question_count):
-            answer = DNSanswer(
-                queries[i].name,
-                dns_record_type.RecordType.A.value,
-                dns_record_class.RecordClass.IN.value,
-                ttl=60,
-                rdlength=4,
-                rdata='8.8.8.8'
-            )
-            answers.append(answer)
-            print(f'appended {answer=}')
+                if len(message) < len(response_buf):
+                    answer = DNSanswer.from_message(response_buf[len(message):], 0)
+                    answers.append(answer)
+                else:
+                    answer = DNSanswer(
+                        ['codecrafters', 'io'],
+                        dns_record_type.RecordType.A.value,
+                        dns_record_class.RecordClass.IN.value,
+                        ttl=60,
+                        rdlength=4,
+                        rdata = b'\x09\x09\x09\x09'
+                    )
+                    answers.append(answer)
+        else:
+            for i in range(header.question_count):
+                answer = DNSanswer(
+                    queries[i].name,
+                    dns_record_type.RecordType.A.value,
+                    dns_record_class.RecordClass.IN.value,
+                    ttl=60,
+                    rdlength=4,
+                    rdata=b'\x08\x08\x08\x08'
+                )
+                answers.append(answer)
 
         # TODO 
         return cls(header, queries, answers)

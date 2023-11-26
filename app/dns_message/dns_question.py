@@ -82,9 +82,6 @@ class DNSquestion:
 
         return name + struct.pack('!HH', self.record_type, self.clazz)
 
-    def _parse_label(self):
-        pass
-
     def __str__(self) -> str:
         return (f'DNSquestion:\n'
             f'\tname: {self.name}\n'

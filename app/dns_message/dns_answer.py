@@ -15,6 +15,8 @@ class DNSanswer:
     rdlength: int
     rdata: str
 
+    PACKET_COMPRESSION_SIGNAL_BYTE = 0xC0
+
     @classmethod
     def from_message(cls, message: bytes, buf_ptr: int) -> Self:
         """
@@ -27,41 +29,55 @@ class DNSanswer:
         Args:
             cls: The type of the class 
             buf (bytes): DNS message contents
-            buf_ptr (int): Index of the message to start parsing from.
 
         Returns:
-            A tuple (DNSanswer, int), where the int signifies the byte where parsing was finished.
+            Initialized DNSanswer
         """
 
-        # TODO
-
-        # Skip the header section:
-        DNS_HEADER_LEN_BYTES = 12
-        buf = message[DNS_HEADER_LEN_BYTES:]
         labels = []
+        buf=message
 
         # Parse the string
-        next_byte = 0
-        while buf[next_byte] != '\x00':
-            # Read the length of the string 
-            strlen = buf[next_byte]
-            # Cut the appropriate slice
-            string = buf[next_byte + 1: next_byte + 1 + strlen]
-            labels.append(string.decode())
+        while buf[buf_ptr] != '\x00':
+            strlen = buf[buf_ptr]
+            
+            if (strlen & cls.PACKET_COMPRESSION_SIGNAL_BYTE == cls.PACKET_COMPRESSION_SIGNAL_BYTE):
+                # The two highest bits set signal packet compression, however then to obtain the jump
+                # address we must consider it as part of a 2 byte value where we need to unset the 
+                # two highest order bits
+                jump_addr = int.from_bytes(buf[buf_ptr: buf_ptr+2]) ^ 0xC000
+                strlen = buf[jump_addr]
+                string = buf[jump_addr + 1: jump_addr + 1 + strlen]
+                labels.append(string.decode())
 
-            next_byte += strlen + 1
-            if buf[next_byte] == 0:
+                # Since the compression is 2 bytes, overwrite the proxy value
+                # Setting to 1 instead of 2 because +1 gets added later
+                strlen = 1
+
+            # Cut the appropriate slice
+            else:
+                string = buf[buf_ptr + 1: buf_ptr + 1 + strlen]
+                labels.append(string.decode())
+
+            buf_ptr += strlen + 1
+            if buf[buf_ptr] == 0:
+                buf_ptr += 1
                 break
         
+        # HARDCODED
         name = labels 
         record_type = RecordType.A.value
+        buf_ptr += 2
         clazz = RecordClass.IN.value
-        # ttl = struct.pack('!I', 60)
+        buf_ptr += 2
         ttl = 60
-        # rdlength = struct.pack('!H', 4)
-        rdata = '8.8.8.8'
+        buf_ptr += 4
+        # Only handling IP addresses (from guaranteed record type)
+        rdlength = len(b'\x08\x08\x08\x08')
+        buf_ptr += 2
+        rdata = buf[buf_ptr: buf_ptr+rdlength]
 
-        return cls(name, record_type, clazz, ttl, len(rdata)-3, rdata), buf_ptr
+        return cls(name, record_type, clazz, ttl, rdlength, rdata)
 
     def pack(self) -> bytes:
         """
@@ -78,7 +94,7 @@ class DNSanswer:
 
         # convert rdata to integer format
         rdata_encoded = b''
-        for ip_part in '8.8.8.8'.split('.'):
+        for ip_part in self.rdata:
             rdata_encoded += struct.pack('!B', int(ip_part))
 
         # pack fixed length fields: type, class, TTL length and data
