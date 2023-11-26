@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Self
 import struct
 
-import app.dns_utils as dns_utils
+import app.dns_utils
 from app.dns_message.dns_record_class import RecordClass
 from app.dns_message.dns_record_type import RecordType
 
@@ -32,7 +32,7 @@ class DNSquestion:
         Returns:
             A tuple (DNSquestion, int), where the int signifies the byte where parsing was finished.
         """
-        labels, buf_ptr = dns_utils.parse_dns_labels(buf, buf_ptr)
+        labels, buf_ptr = app.dns_utils.parse_dns_labels(buf, buf_ptr)
         
         # HARDCODED
         record_type = RecordType.A.value
