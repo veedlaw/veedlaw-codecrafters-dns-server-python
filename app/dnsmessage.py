@@ -37,30 +37,14 @@ class DNSmessage:
 
                 if len(message) < len(response_buf):
                     answer = DNSanswer.from_message(response_buf[len(message):], 0)
-                    answers.append(answer)
                 else:
-                    answer = DNSanswer(
-                        ['codecrafters', 'io'],
-                        dns_record_type.RecordType.A.value,
-                        dns_record_class.RecordClass.IN.value,
-                        ttl=60,
-                        rdlength=4,
-                        rdata = b'\x09\x09\x09\x09'
-                    )
-                    answers.append(answer)
-        else:
-            for i in range(header.question_count):
-                answer = DNSanswer(
-                    queries[i].name,
-                    dns_record_type.RecordType.A.value,
-                    dns_record_class.RecordClass.IN.value,
-                    ttl=60,
-                    rdlength=4,
-                    rdata=b'\x08\x08\x08\x08'
-                )
+                    answer = cls._create_default_answer(question)
                 answers.append(answer)
+            else:
+                for i in range(header.question_count):
+                    answer = cls._create_default_answer(queries[i])
+                    answers.append(answer)
 
-        # TODO 
         return cls(header, queries, answers)
     
     def pack(self) -> bytes:
@@ -70,16 +54,18 @@ class DNSmessage:
             bytes: The packed DNS message as a byte string.
         
         """
-        response = b''
-
-        header_bytes = self.header.pack()
-        response += header_bytes
-
-        for query in self.queries:
-            response += query.pack()
-
-        for answer in self.answers:
-            answer_bytes = answer.pack()
-            response += answer_bytes
-
+        response = self.header.pack()
+        response += b''.join(query.pack() for query in self.queries)
+        response += b''.join(answer.pack() for answer in self.answers)
         return response
+    
+    @staticmethod
+    def _create_default_answer(query: DNSquestion) -> DNSanswer:
+        return DNSanswer(
+            query.name,
+            dns_record_type.RecordType.A.value,
+            dns_record_class.RecordClass.IN.value,
+            ttl=60,
+            rdlength=4,
+            rdata=b'\x08\x08\x08\x08'
+        )

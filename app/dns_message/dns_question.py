@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Self
 import struct
 
+import app.dns_utils as dns_utils
 from app.dns_message.dns_record_class import RecordClass
 from app.dns_message.dns_record_type import RecordType
 
@@ -31,34 +32,7 @@ class DNSquestion:
         Returns:
             A tuple (DNSquestion, int), where the int signifies the byte where parsing was finished.
         """
-        labels = []
-
-        # Parse the string
-        while buf[buf_ptr] != '\x00':
-            strlen = buf[buf_ptr]
-            
-            if (strlen & cls.PACKET_COMPRESSION_SIGNAL_BYTE == cls.PACKET_COMPRESSION_SIGNAL_BYTE):
-                # The two highest bits set signal packet compression, however then to obtain the jump
-                # address we must consider it as part of a 2 byte value where we need to unset the 
-                # two highest order bits
-                jump_addr = int.from_bytes(buf[buf_ptr: buf_ptr+2]) ^ 0xC000
-                strlen = buf[jump_addr]
-                string = buf[jump_addr + 1: jump_addr + 1 + strlen]
-                labels.append(string.decode())
-
-                # Since the compression is 2 bytes, overwrite the proxy value
-                # Setting to 1 instead of 2 because +1 gets added later
-                strlen = 1
-
-            # Cut the appropriate slice
-            else:
-                string = buf[buf_ptr + 1: buf_ptr + 1 + strlen]
-                labels.append(string.decode())
-
-            buf_ptr += strlen + 1
-            if buf[buf_ptr] == 0:
-                buf_ptr += 1
-                break
+        labels, buf_ptr = dns_utils.parse_dns_labels(buf, buf_ptr)
         
         # HARDCODED
         record_type = RecordType.A.value
