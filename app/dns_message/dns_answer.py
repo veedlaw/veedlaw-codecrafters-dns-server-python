@@ -36,7 +36,7 @@ class DNSanswer:
             Initialized DNSanswer
         """
 
-        labels, buf_ptr = app.ns_utils.parse_dns_labels(buf, buf_ptr)
+        labels, buf_ptr = app.dns_utils.parse_dns_labels(buf, buf_ptr)
 
         # HARDCODED
         name = labels 
